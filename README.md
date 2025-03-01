@@ -189,5 +189,4 @@ The official documentation for this API can be viewd by accessing [this link](ht
 # 💬 Contact & Contributions
 🚀 Feel free to contribute, report issues, or suggest improvements!
 
-💌 Contact: andreipanait00@gmail.com #   E n c r y p t o r A n d S e c u r i t y C h e c k  
- 
+💌 Contact: andreipanait00@gmail.com #
