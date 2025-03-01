@@ -169,7 +169,7 @@ Protection: AES-GCM detects tampering and prevents the altered file from being d
 - -o output.txt → Specify the output (decrypted) file
 - -p "your-password" → Provide the same password used for encryption
 
-## 🔄 Save encryption keys securely instead of requiring user input every time 
+## 🔄 Save encryption keys securely instead of requiring user input every time ✅ 
 
 
 ## 🖼 Drag & drop support for selecting files ✅  
@@ -189,4 +189,4 @@ The official documentation for this API can be viewd by accessing [this link](ht
 # 💬 Contact & Contributions
 🚀 Feel free to contribute, report issues, or suggest improvements!
 
-💌 Contact: andreipanait00@gmail.com 
+💌 Contact: andreipanait00@gmail.com #
