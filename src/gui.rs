@@ -6,8 +6,12 @@ use std::path::PathBuf; // Used for handling file paths
 
 use dotenvy::dotenv;
 use std::env;
+use std::fs;
+use std::path::Path;
 use std::process::Command;
 use once_cell::sync::Lazy;
+
+const OUTPUT_FOLDER: &str = "folder";
 
 static API_KEY: Lazy<String> = Lazy::new(|| {
     dotenv().ok(); // Load environment variables from the .env file
@@ -114,7 +118,18 @@ impl EncryptionApp {
 
         if ui.button("🔄 Start").clicked() {
             if let Some(file) = &self.selected_file {
-                let output_file = format!("{}_enc", file);
+                // Ensure the output folder exists
+                if !Path::new(OUTPUT_FOLDER).exists() {
+                    fs::create_dir_all(OUTPUT_FOLDER).expect("Failed to create output folder");
+                }
+
+                // Extract filename from path and append "_enc"
+                let filename = Path::new(file)
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy();
+
+                let output_file = format!("{}/{}_enc", OUTPUT_FOLDER, filename);
 
                 let result = match self.mode {
                     Mode::Encrypt => encrypt_file(file, &output_file),

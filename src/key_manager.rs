@@ -1,11 +1,13 @@
 use aes_gcm::aead::{Aead, KeyInit, OsRng};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
 use std::fs;
+use std::fs::File;
 use std::path::Path;
 use std::io::{Read, Write};
 use rand::RngCore;
 
-const KEY_FILE: &str = "key_store.bin";
+const FOLDER: &str = "folder";
+const KEY_FILE: &str = "folder/key_store.bin";
 
 /// Generate a random encryption key
 pub fn generate_key() -> Vec<u8> {
@@ -16,7 +18,11 @@ pub fn generate_key() -> Vec<u8> {
 
 /// Save the encryption key securely
 pub fn save_key(encryption_key: &[u8]) -> std::io::Result<()> {
-    fs::write(KEY_FILE, encryption_key)?;
+    fs::create_dir_all(FOLDER)?;
+
+    let mut file = File::create(KEY_FILE)?;
+
+    file.write_all(encryption_key)?;
     Ok(())
 }
 
