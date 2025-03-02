@@ -164,9 +164,11 @@ impl EncryptionApp {
                 match ipqs.phone_number_api(&self.phone_number, &additional_params) {
                     Ok(result) => {
                         self.verification_result = format!("{:?}", result);
+                        println!("{:?}", result);
                     }
                     Err(e) => {
                         self.verification_result = format!("❌ Error: {}", e);
+                        println!("{:?}", self.verification_result);
                     }
                 }
             } else {
