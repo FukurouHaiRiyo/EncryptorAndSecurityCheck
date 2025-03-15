@@ -1,1 +1,82 @@
-Andrei
+Key Management Enhancements
+    1. Password-Based Key Derivation 
+        Allow users to generate encryption keys from strong passwords using algorithms like PBKDF2, Argon2, or scrypt.
+        This avoids storing raw keys and strengthens security against brute-force attacks.
+    
+    2. Key Rotation and Expiry - done
+        Implement a mechanism for automatic key rotation after a certain period or number of uses.
+        Mark older keys as deprecated but still usable for decryption.
+    
+    3. Secure Key Storage 
+        Integrate with OS-level key storage solutions like Windows DPAPI, macOS Keychain, or Linux Gnome Keyring for 
+        enhanced key security.
+        Alternatively, encrypt keys using a master key derived from user credentials.
+    
+    4. Key Encryption with Hardware Security Modules (HSM)
+        For critical environments, consider integrating with an HSM for key generation and storage.
+
+Encryption Enhancements
+    1. Hybrid Encryption
+        Use RSA or ECC to encrypt the AES key, and AES for encrypting file content. This makes key management more secure.
+    
+    2. File Integrity Verification
+        Generate and store a cryptographic hash (e.g., SHA-256) of the original file to verify integrity post-decryption.
+        Alert the user if the file has been tampered with.
+    
+    3. Multiple Encryption Layers
+        Allow multi-layer encryption, where files are encrypted with multiple keys (optional feature for high-security needs).
+    
+    4. Metadata Protection
+        Encrypt not just the file content but also metadata (like filename, size) to prevent information leakage.
+
+
+Authentication and Authorization
+    1. User Authentication for Key Access
+        Implement user authentication before accessing or decrypting a file, possibly using Firebase Authentication.
+        Restrict access to files based on user roles.
+    
+    2. Audit Logs
+        Maintain an encrypted audit log that records all encryption and decryption operations for accountability.
+    
+    3. Time-Limited Access
+        Enable time-limited decryption, where files can only be decrypted within a certain timeframe.
+
+Anti-Tampering and Security Checks
+    1. Digital Signatures
+        Sign encrypted files using a private key to ensure authenticity. Verify signatures before decryption.
+    
+    2. File Poisoning Detection
+        Check for unexpected or corrupted file structures that could indicate tampering or poisoning attempts.
+    
+    3. Two-Factor Authentication (2FA)
+        Require a second factor, like an OTP or hardware token, before decrypting sensitive files.
+
+
+Network Security Enhancements
+    1. Secure File Sharing
+        If file sharing is added, ensure secure transmission over TLS and add options for encrypting files with the recipient’s public key.
+    
+    2. Remote Key Storage
+        Consider optional integration with cloud-based key management services (like AWS KMS, Google Cloud KMS).
+
+
+GUI Improvements for Security
+    1. Visual File Integrity Checks
+        Display hash values or validation status directly in the GUI for user awareness.
+    
+    2. Sensitive Operation Warnings
+        Show warnings before overwriting existing encrypted files.
+    
+    3. Clipboard Sanitization
+        Automatically clear sensitive data (like passwords or keys) from the clipboard after use.
+
+Backup and Recovery
+    1. Encrypted Backups
+        Offer an option to automatically back up encrypted files.
+    
+    2. Key Recovery Process
+        Build a secure, user-friendly key recovery process in case of lost keys.
+
+
+
+What if the user wants to encrypt multiple files and then decrypt them?

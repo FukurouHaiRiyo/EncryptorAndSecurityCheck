@@ -5,6 +5,13 @@ use std::fs; // File handling
 use std::path::Path; // Path handling
 use crate::key_manager;
 
+/// Struct for file metadata
+#[derive(Serialize, Deserialize)]
+struct FileMetadata {
+    filename: String,
+    size: u64,
+}
+
 /// Encrypts a file using AES-256-GCM encryption with a securely stored key.
 ///
 /// Encrypted file format:
@@ -119,7 +126,8 @@ fn load_or_generate_key() -> Result<Key<Aes256Gcm>, String> {
 
     // Generate new key
     let new_key = key_manager::generate_key();
-    key_manager::save_key(&new_key).map_err(|e| format!("❌ Error saving key: {}", e))?;
+    let metadata = key_manager::KeyMetadata::new(new_key.clone());
+    key_manager::save_key(&metadata).map_err(|e| format!("❌ Error saving key: {}", e))?;
 
     println!("🔑 New encryption key generated and stored securely.");
     Ok(Key::<Aes256Gcm>::from_slice(&new_key).clone())
