@@ -3,6 +3,7 @@ use aes_gcm::aead::{Aead, KeyInit}; // Required traits for encryption/decryption
 use rand::Rng; // Random number generation
 use std::fs; // File handling
 use std::path::Path; // Path handling
+use serde::{Serialize, Deserialize};
 use crate::key_manager;
 
 /// Struct for file metadata
@@ -42,6 +43,14 @@ pub fn encrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
 
     // Read input file content
     let data = fs::read(input_path).map_err(|e| format!("❌ Error reading file: {}", e))?;
+    let metadata = FileMetadata {
+        filename: Path::new(input_path).file_name().unwrap().to_string_lossy().into_owned(),
+        size: data.len() as u64,
+    };
+
+    // Serialize and encrypt metadata 
+    let serialized_metadata = serde_json::to_vec(&metadata).map_err(|e| format!("❌ Metadata serialization error: {}", e))?;
+    let encrypted_metadata = cipher.encrypt(Nonce::from_slice(&nonce), serialized_metadata.as_ref()).map_err(|e| format!("Metadata encryption failed: {}", e))?;
 
     // Encrypt file data
     let encrypted_data = cipher.encrypt(Nonce::from_slice(&nonce), data.as_ref())
@@ -50,6 +59,8 @@ pub fn encrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
     // Output format: [nonce] + [ciphertext + auth tag]
     let mut output = Vec::new();
     output.extend_from_slice(&nonce);
+    output.extend_from_slice(&(encrypted_metadata.len() as u64).to_be_bytes()); // Metadata length (for parsing)
+    output.extend_from_slice(&encrypted_metadata);
     output.extend_from_slice(&encrypted_data);
 
     // Write encrypted data to output file
@@ -90,23 +101,38 @@ pub fn decrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
         .map_err(|e| format!("❌ Error reading encrypted file: {}", e))?;
 
     // Ensure valid file structure (at least 12 bytes for nonce)
-    if encrypted_data.len() < 12 {
+    if encrypted_data.len() < 12 + 8 {
         return Err("❌ Invalid encrypted file format (too small)".to_string());
     }
 
     // Extract nonce (12 bytes) and encrypted data
     let nonce = &encrypted_data[..12];
-    let data = &encrypted_data[12..];
+    let metadata_len = u64::from_be_bytes(encrypted_data[12..20].try_into().unwrap()) as usize;
 
-    // Decrypt data
-    let decrypted_data = cipher.decrypt(Nonce::from_slice(nonce), data)
-        .map_err(|_| "❌ Decryption failed: Authentication tag mismatch (file may be tampered)".to_string())?;
+    if encrypted_data.len() < 20 + metadata_len {
+        return Err("❌ Encrypted file format is incorrect.".to_string());
+    }
 
-    // Write decrypted data to output file
+    let encrypted_metadata = &encrypted_data[20..20 + metadata_len];
+    let encrypted_file_data = &encrypted_data[20 + metadata_len..];
+
+    // Decrypt metadata
+    let decrypted_metadata = cipher.decrypt(Nonce::from_slice(nonce), encrypted_metadata)
+        .map_err(|_| "❌ Metadata decryption failed.".to_string())?;
+    let metadata: FileMetadata = serde_json::from_slice(&decrypted_metadata)
+        .map_err(|_| "❌ Failed to deserialize metadata.".to_string())?;
+
+    // Decrypt file data
+    let decrypted_data = cipher.decrypt(Nonce::from_slice(nonce), encrypted_file_data)
+     .map_err(|_| "❌ File decryption failed.".to_string())?;
+
     fs::write(output_path, decrypted_data)
         .map_err(|e| format!("❌ Error writing decrypted file: {}", e))?;
 
-    println!("✅ Decryption successful! File saved as '{}'", output_path);
+    println!(
+        "✅ Decryption successful! Original filename: '{}', size: {} bytes. File saved as '{}'",
+        metadata.filename, metadata.size, output_path
+    );
     Ok(())
 }
 
