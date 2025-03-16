@@ -50,16 +50,17 @@ pub fn encrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
 
     // Serialize and encrypt metadata 
     let serialized_metadata = serde_json::to_vec(&metadata).map_err(|e| format!("❌ Metadata serialization error: {}", e))?;
-    let encrypted_metadata = cipher.encrypt(Nonce::from_slice(&nonce), serialized_metadata.as_ref()).map_err(|e| format!("Metadata encryption failed: {}", e))?;
+    let encrypted_metadata = cipher.encrypt(Nonce::from_slice(&nonce), serialized_metadata.as_ref())
+        .map_err(|e| format!("❌ Metadata encryption failed: {}", e))?;
 
     // Encrypt file data
     let encrypted_data = cipher.encrypt(Nonce::from_slice(&nonce), data.as_ref())
-        .map_err(|e| format!("❌ Encryption failed: {}", e))?;
+        .map_err(|e| format!("❌ File encryption failed: {}", e))?;
 
-    // Output format: [nonce] + [ciphertext + auth tag]
+    // Output format: [nonce] + [metadata length] + [encrypted metadata] + [encrypted data]
     let mut output = Vec::new();
     output.extend_from_slice(&nonce);
-    output.extend_from_slice(&(encrypted_metadata.len() as u64).to_be_bytes()); // Metadata length (for parsing)
+    output.extend_from_slice(&(encrypted_metadata.len() as u64).to_be_bytes()); // Metadata length
     output.extend_from_slice(&encrypted_metadata);
     output.extend_from_slice(&encrypted_data);
 
@@ -85,7 +86,6 @@ pub fn encrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
 /// # Returns:
 /// - `Ok(())` if decryption succeeds, otherwise `Err(String)`.
 pub fn decrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
-    // Ensure encrypted file exists
     if !Path::new(input_path).exists() {
         return Err(format!("❌ Error: Encrypted file '{}' not found.", input_path));
     }
@@ -100,12 +100,11 @@ pub fn decrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
     let encrypted_data = fs::read(input_path)
         .map_err(|e| format!("❌ Error reading encrypted file: {}", e))?;
 
-    // Ensure valid file structure (at least 12 bytes for nonce)
     if encrypted_data.len() < 12 + 8 {
         return Err("❌ Invalid encrypted file format (too small)".to_string());
     }
 
-    // Extract nonce (12 bytes) and encrypted data
+    // Extract nonce, metadata length, encrypted metadata, and encrypted file data
     let nonce = &encrypted_data[..12];
     let metadata_len = u64::from_be_bytes(encrypted_data[12..20].try_into().unwrap()) as usize;
 
@@ -124,7 +123,7 @@ pub fn decrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
 
     // Decrypt file data
     let decrypted_data = cipher.decrypt(Nonce::from_slice(nonce), encrypted_file_data)
-     .map_err(|_| "❌ File decryption failed.".to_string())?;
+        .map_err(|_| "❌ File decryption failed.".to_string())?;
 
     fs::write(output_path, decrypted_data)
         .map_err(|e| format!("❌ Error writing decrypted file: {}", e))?;
@@ -142,7 +141,9 @@ pub fn decrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
 /// - `Ok(Key<Aes256Gcm>)` if the key is successfully loaded or generated.
 /// - `Err(String)` if key storage fails.
 fn load_or_generate_key() -> Result<Key<Aes256Gcm>, String> {
-    if let Some(stored_key) = key_manager::load_key() {
+    let master_key = key_manager::load_or_generate_master_key();
+
+    if let Some(stored_key) = key_manager::load_key(&master_key) {
         if stored_key.len() == 32 {
             return Ok(Key::<Aes256Gcm>::from_slice(&stored_key).clone());
         } else {
@@ -150,10 +151,11 @@ fn load_or_generate_key() -> Result<Key<Aes256Gcm>, String> {
         }
     }
 
-    // Generate new key
-    let new_key = key_manager::generate_key();
+    // Generate new key if not found
+    let new_key = key_manager::generate_random_key().to_vec();
     let metadata = key_manager::KeyMetadata::new(new_key.clone());
-    key_manager::save_key(&metadata).map_err(|e| format!("❌ Error saving key: {}", e))?;
+    key_manager::save_key(&metadata, &master_key)
+        .map_err(|e| format!("❌ Error saving key: {}", e))?;
 
     println!("🔑 New encryption key generated and stored securely.");
     Ok(Key::<Aes256Gcm>::from_slice(&new_key).clone())

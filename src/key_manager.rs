@@ -11,14 +11,12 @@ use serde::{Serialize, Deserialize};
 const FOLDER: &str = "folder";
 const KEY_FILE: &str = "folder/k_store.enc";
 const MASTER_KEY_STORE: &str = "folder/m_store.bin";
-const MASTER_KEY: &[u8; 32] = b"01234567012345670123456701234567"; // make this so it's randomly generated
 const NONCE_SIZE: usize = 12;
 
 /// Constants for key rotation
 const KEY_ROTATION_PERIOD: u64 = 60 * 60 * 24 * 30; // 30 days in seconds
 const MAX_KEY_USES: u64 = 1000;
 
-/// Struct to store key metadata (timestamp and usage count)
 #[derive(Serialize, Deserialize, Debug)]
 pub struct KeyMetadata {
     timestamp: u64,
@@ -57,11 +55,35 @@ impl KeyMetadata {
     }
 }
 
-/// Generate a random encryption key
-pub fn generate_key() -> Vec<u8> {
-    let mut key = [0u8; 32]; // AES-256 requires a 32-byte key
+/// Generate a random 32-byte key
+pub fn generate_random_key() -> [u8; 32] {
+    let mut key = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut key);
-    key.to_vec()
+    key
+}
+
+/// Save the master key securely
+pub fn save_master_key(key: &[u8]) -> std::io::Result<()> {
+    fs::create_dir_all(FOLDER)?;
+    let mut file = File::create(MASTER_KEY_STORE)?;
+    file.write_all(key)?;
+    Ok(())
+}
+
+/// Load the master key from storage, generating it if it doesn't exist
+pub fn load_or_generate_master_key() -> [u8; 32] {
+    if Path::new(MASTER_KEY_STORE).exists() {
+        let mut key = [0u8; 32];
+        File::open(MASTER_KEY_STORE)
+            .expect("Failed to open master key file")
+            .read_exact(&mut key)
+            .expect("Failed to read master key");
+        key
+    } else {
+        let key = generate_random_key();
+        save_master_key(&key).expect("Failed to save master key");
+        key
+    }
 }
 
 /// Encrypt data with AES-256-GCM
@@ -71,7 +93,6 @@ pub fn encrypt(data: &[u8], key: &[u8]) -> Vec<u8> {
     OsRng.fill_bytes(&mut nonce);
     let ciphertext = cipher.encrypt(Nonce::from_slice(&nonce), data).expect("encryption failure");
     
-    // Prepend nonce to ciphertext for later decryption
     [nonce.to_vec(), ciphertext].concat()
 }
 
@@ -82,26 +103,26 @@ pub fn decrypt(data: &[u8], key: &[u8]) -> Vec<u8> {
     cipher.decrypt(Nonce::from_slice(nonce), ciphertext).expect("decryption failure")
 }
 
-/// Save the encryption key securely with its metadata, encrypting the file with a master key
-pub fn save_key(metadata: &KeyMetadata) -> std::io::Result<()> {
+/// Save the encryption key securely, encrypting it with the master key
+pub fn save_key(metadata: &KeyMetadata, master_key: &[u8]) -> std::io::Result<()> {
     fs::create_dir_all(FOLDER)?;
 
     let serialized_metadata = serde_json::to_vec(metadata).unwrap();
-    let encrypted_metadata = encrypt(&serialized_metadata, MASTER_KEY);
+    let encrypted_metadata = encrypt(&serialized_metadata, master_key);
 
     let mut file = File::create(KEY_FILE)?;
     file.write_all(&encrypted_metadata)?;
     Ok(())
 }
 
-/// Load the encryption key and its metadata from storage, decrypting the file with the master key
-pub fn load_key() -> Option<Vec<u8>> {
+/// Load the encryption key and its metadata, decrypting with the master key
+pub fn load_key(master_key: &[u8]) -> Option<Vec<u8>> {
     if Path::new(KEY_FILE).exists() {
         let mut encrypted_data = Vec::new();
         if let Ok(mut file) = fs::File::open(KEY_FILE) {
             file.read_to_end(&mut encrypted_data).ok()?;
 
-            let decrypted_data = decrypt(&encrypted_data, MASTER_KEY);
+            let decrypted_data = decrypt(&encrypted_data, master_key);
             let mut metadata: KeyMetadata = serde_json::from_slice(&decrypted_data).unwrap();
 
             // Check if the key needs to be rotated (expired or too many uses)
@@ -114,7 +135,7 @@ pub fn load_key() -> Option<Vec<u8>> {
             metadata.increment_usage();
 
             // Save the updated metadata, preserving the incremented usage count
-            if let Err(e) = save_key(&metadata) {
+            if let Err(e) = save_key(&metadata, master_key) {
                 eprintln!("Error saving updated key: {}", e);
             }
 
