@@ -7,7 +7,7 @@ Key Management Enhancements
         Implement a mechanism for automatic key rotation after a certain period or number of uses.
         Mark older keys as deprecated but still usable for decryption.
     
-    3. Secure Key Storage 
+    3. Secure Key Storage - done
         Integrate with OS-level key storage solutions like Windows DPAPI, macOS Keychain, or Linux Gnome Keyring for 
         enhanced key security.
         Alternatively, encrypt keys using a master key derived from user credentials.

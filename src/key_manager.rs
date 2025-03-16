@@ -9,8 +9,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Serialize, Deserialize}; 
 
 const FOLDER: &str = "folder";
-const KEY_FILE: &str = "folder/key_store.enc";
-const MASTER_KEY: &[u8; 32] = b"01234567012345670123456701234567"; // Use a secure, randomly generated master key
+const KEY_FILE: &str = "folder/k_store.enc";
+const MASTER_KEY_STORE: &str = "folder/m_store.bin";
+const MASTER_KEY: &[u8; 32] = b"01234567012345670123456701234567"; // make this so it's randomly generated
 const NONCE_SIZE: usize = 12;
 
 /// Constants for key rotation
