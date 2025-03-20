@@ -4,7 +4,9 @@ use rand::Rng; // Random number generation
 use std::fs; // File handling
 use std::path::Path; // Path handling
 use serde::{Serialize, Deserialize};
+
 use crate::key_manager;
+use crate::audit_log::log_encryption_action;
 
 /// Struct for file metadata
 #[derive(Serialize, Deserialize)]
@@ -68,6 +70,7 @@ pub fn encrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
     fs::write(output_path, output)
         .map_err(|e| format!("❌ Error writing encrypted file: {}", e))?;
 
+    log_encryption_action("User", "Encrypt", input_path); // Log the encryption action
     println!("✅ Encryption successful! File saved as '{}'", output_path);
     Ok(())
 }
@@ -128,6 +131,7 @@ pub fn decrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
     fs::write(output_path, decrypted_data)
         .map_err(|e| format!("❌ Error writing decrypted file: {}", e))?;
 
+    log_encryption_action("User", "Decrypt", input_path); // Log the decryption action
     println!(
         "✅ Decryption successful! Original filename: '{}', size: {} bytes. File saved as '{}'",
         metadata.filename, metadata.size, output_path

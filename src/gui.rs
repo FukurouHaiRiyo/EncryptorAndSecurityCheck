@@ -11,6 +11,8 @@ use std::path::Path;
 use std::process::Command;
 use once_cell::sync::Lazy;
 
+use crate::audit_log::read_audit_log;
+
 const OUTPUT_FOLDER: &str = "folder";
 
 static API_KEY: Lazy<String> = Lazy::new(|| {
@@ -30,6 +32,7 @@ enum Mode {
 enum Tab {
     Encryption,
     PhoneVerification,
+    AuditLog,
     OpenTerminal,
 }
 
@@ -71,6 +74,10 @@ impl eframe::App for EncryptionApp {
                     self.active_tab = Tab::PhoneVerification;
                 }
 
+                if ui.button("Audit Log").clicked() {
+                    self.active_tab = Tab::AuditLog;
+                }
+
                 if ui.button("Open terminal").clicked() {
                     self.active_tab = Tab::OpenTerminal;
                 }
@@ -81,6 +88,7 @@ impl eframe::App for EncryptionApp {
             match self.active_tab {
                 Tab::Encryption => self.render_encryption_tab(ui),
                 Tab::PhoneVerification => self.render_phone_number_verification_tab(ui),
+                Tab::AuditLog => self.render_audit_log_tab(ui),
                 Tab::OpenTerminal => self.open_terminal(),
             }
         });
@@ -180,6 +188,13 @@ impl EncryptionApp {
             ui.label(&self.verification_result);
         }
 
+    }
+
+    fn render_audit_log_tab(&mut self, ui: &mut Ui) {
+        ui.heading("📜 Audit Log");
+        for log in read_audit_log() {
+            ui.label(log);
+        }
     }
 
     /// Implementation to open the terminal instead 

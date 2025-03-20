@@ -6,7 +6,8 @@ use once_cell::sync::Lazy;
 mod encryption;
 mod gui;
 mod verification;
-mod key_manager; // Import key management module
+mod key_manager; 
+mod audit_log;
 
 // Load the API key from the .env file
 static API_KEY: Lazy<String> = Lazy::new(|| {
