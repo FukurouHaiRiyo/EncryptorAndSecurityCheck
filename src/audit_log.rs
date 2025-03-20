@@ -9,10 +9,9 @@ use rand::RngCore;
 /// Name of the audit log file where encrypted logs are stored.
 const LOG_FILE: &str = "audit_log.txt";
 
-
 /// Secret key used for AES-256-GCM encryption.
 /// ⚠️ This key should be stored securely and not hardcoded in production.
-const SECRET_KEY: &[u8; 32] = b"0123456789abcdef0123456789abcdef";
+const SECRET_KEY: &[u8; 32] = b"WAINPvOunizd3CMa5z91t7wGSiNjzRN/";
 
 /// Size of the nonce for AES-GCM encryption (12 bytes).
 const NONCE_SIZE: usize = 12;
