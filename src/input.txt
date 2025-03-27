@@ -35,7 +35,7 @@ Authentication and Authorization
         Implement user authentication before accessing or decrypting a file, possibly using Firebase Authentication.
         Restrict access to files based on user roles.
     
-    2. Audit Logs
+    2. Audit Logs - to fix
         Maintain an encrypted audit log that records all encryption and decryption operations for accountability.
     
     3. Time-Limited Access
@@ -56,12 +56,12 @@ Network Security Enhancements
     1. Secure File Sharing
         If file sharing is added, ensure secure transmission over TLS and add options for encrypting files with the recipient’s public key.
     
-    2. Remote Key Storage
+    2. Remote Key Storage - done
         Consider optional integration with cloud-based key management services (like AWS KMS, Google Cloud KMS).
 
 
 GUI Improvements for Security
-    1. Visual File Integrity Checks
+    1. Visual File Integrity Checks - done
         Display hash values or validation status directly in the GUI for user awareness.
     
     2. Sensitive Operation Warnings

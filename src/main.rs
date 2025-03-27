@@ -8,6 +8,7 @@ mod gui;
 mod verification;
 mod key_manager; 
 mod audit_log;
+mod hash_file;
 
 // Load the API key from the .env file
 static API_KEY: Lazy<String> = Lazy::new(|| {
@@ -54,7 +55,7 @@ enum Commands {
 }
 
 fn main() {
-    /// Get the command line arguments
+    // Get the command line arguments
     let args: Vec<String> = env::args().collect();
 
     // Check if "gui" is specified or if no arguments are passed (launch GUI by default)

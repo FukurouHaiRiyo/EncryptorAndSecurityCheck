@@ -1,8 +1,7 @@
-use eframe::egui::{self, CentralPanel, Context, TopBottomPanel, Ui}; // Importing egui UI elements
-use rfd::FileDialog; // Importing FileDialog for file selection
-use crate::encryption::{encrypt_file, decrypt_file}; // Import encryption functions
-use crate::verification::ipqs::IPQS; // Import IPQS verification functions
-use std::path::PathBuf; // Used for handling file paths
+#[allow(unused_imports)]
+use eframe::egui;
+use eframe::egui::{CentralPanel, Context, TopBottomPanel, Ui, TextEdit}; 
+use rfd::{FileDialog, MessageDialog, MessageDialogResult}; 
 
 use dotenvy::dotenv;
 use std::env;
@@ -10,43 +9,44 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 use once_cell::sync::Lazy;
+use std::sync::{Arc, Mutex};
 
 use crate::audit_log::read_audit_log;
+use crate::hash_file::{compute_file_hash, validate_integrity};
+use crate::encryption::{encrypt_file, decrypt_file}; 
+
 
 const OUTPUT_FOLDER: &str = "folder";
 
 static API_KEY: Lazy<String> = Lazy::new(|| {
-    dotenv().ok(); // Load environment variables from the .env file
+    dotenv().ok(); 
     env::var("API_KEY").expect("API_KEY not found in .env file")
 });
 
-/// Enum representing the encryption mode (Encrypt or Decrypt)
 #[derive(PartialEq)]
 enum Mode {
     Encrypt,
     Decrypt,
 }
 
-/// Enum for managing tabs
 #[derive(PartialEq)]
 enum Tab {
     Encryption,
-    PhoneVerification,
     AuditLog,
     OpenTerminal,
 }
 
-/// Struct representing the GUI application state
 pub struct EncryptionApp {
-    selected_file: Option<String>, // Stores the selected file path
-    mode: Mode, // Stores the selected encryption mode (Encrypt/Decrypt)
-    status_message: String, // Stores the success or error message
-    active_tab: Tab, // Stores the active tab (Encryption/PhoneVerification)
-    phone_number: String, // Input field for phone number verification
-    verification_result: String // stores the phone verification result
+    selected_file: Option<String>, 
+    mode: Mode, 
+    status_message: String, 
+    active_tab: Tab, 
+    audit_log_data: Arc<Mutex<Option<Vec<String>>>>,
+    phone_number: String, 
+    verification_result: String,
+    file_hash: String, 
 }
 
-/// Default implementation to initialize the app with default values
 impl Default for EncryptionApp {
     fn default() -> Self {
         Self {
@@ -54,30 +54,26 @@ impl Default for EncryptionApp {
             mode: Mode::Encrypt,
             status_message: String::new(),
             active_tab: Tab::Encryption,
+            audit_log_data: Arc::new(Mutex::new(None)),
             phone_number: String::new(),
             verification_result: String::new(),
+            file_hash: String::new(),
         }
     }
 }
 
-/// Implementation of the graphical interface logic using egui
 impl eframe::App for EncryptionApp {
-    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame){
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                // Tab Buttons
                 if ui.button("🔒 Encryption").clicked() {
                     self.active_tab = Tab::Encryption;
                 }
-
-                if ui.button("📞 Phone Verification").clicked() {
-                    self.active_tab = Tab::PhoneVerification;
-                }
-
                 if ui.button("Audit Log").clicked() {
                     self.active_tab = Tab::AuditLog;
+                    let ctx_clone = ctx.clone();
+                    self.fetch_audit_log(ctx_clone);
                 }
-
                 if ui.button("Open terminal").clicked() {
                     self.active_tab = Tab::OpenTerminal;
                 }
@@ -87,7 +83,6 @@ impl eframe::App for EncryptionApp {
         CentralPanel::default().show(ctx, |ui| {
             match self.active_tab {
                 Tab::Encryption => self.render_encryption_tab(ui),
-                Tab::PhoneVerification => self.render_phone_number_verification_tab(ui),
                 Tab::AuditLog => self.render_audit_log_tab(ui),
                 Tab::OpenTerminal => self.open_terminal(),
             }
@@ -95,13 +90,12 @@ impl eframe::App for EncryptionApp {
     }
 }
 
-/// Implementation of the Encryption tab
 impl EncryptionApp {
     fn render_encryption_tab(&mut self, ui: &mut Ui) {
         ui.heading("🔒 File Encryption Tool");
         ui.label("📂 Drag and drop a file here or select one manually:");
 
-        let dropped_files = ui.input(|i|i.raw.dropped_files.clone());
+        let dropped_files = ui.input(|i| i.raw.dropped_files.clone());
         if let Some(file) = dropped_files.first() {
             if let Some(path) = &file.path {
                 self.selected_file = Some(path.display().to_string());
@@ -110,6 +104,10 @@ impl EncryptionApp {
 
         if let Some(file) = &self.selected_file {
             ui.label(format!("📄 Selected file: {}", file));
+
+            // Display File Hash
+            let file_clone = file.clone();
+            self.show_file_hash_ui(ui, &file_clone);
         }
 
         if ui.button("📂 Select File").clicked() {
@@ -126,18 +124,30 @@ impl EncryptionApp {
 
         if ui.button("🔄 Start").clicked() {
             if let Some(file) = &self.selected_file {
-                // Ensure the output folder exists
                 if !Path::new(OUTPUT_FOLDER).exists() {
                     fs::create_dir_all(OUTPUT_FOLDER).expect("Failed to create output folder");
                 }
 
-                // Extract filename from path and append "_enc"
                 let filename = Path::new(file)
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy();
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy();
 
                 let output_file = format!("{}/{}_enc", OUTPUT_FOLDER, filename);
+
+                // Check if the encrypted file already exists 
+                if Path::new(&output_file).exists() {
+                    let overwrite = MessageDialog::new()
+                        .set_title("Warning")
+                        .set_description("The encrypted file already exists. Do you want to overwrite it?")
+                        .set_buttons(rfd::MessageButtons::YesNo)
+                        .show();
+
+                    if overwrite != MessageDialogResult::Yes {
+                        self.status_message = "⚠️ Encryption canceled by user.".to_string();
+                        return;
+                    }
+                }
 
                 let result = match self.mode {
                     Mode::Encrypt => encrypt_file(file, &output_file),
@@ -145,7 +155,15 @@ impl EncryptionApp {
                 };
 
                 self.status_message = match result {
-                    Ok(_) => format!("✅ Success! File saved as: {}", output_file),
+                    Ok(_) => {
+                        // Show Integrity Check for Decryption
+                        if self.mode == Mode::Decrypt {
+                            if self.show_integrity_check(ui, file, &output_file) {
+                                format!("✅ File integrity check succesfull");
+                            }
+                        }
+                        format!("✅ Success! File saved as: {}", output_file)
+                    }
                     Err(e) => format!("❌ Error: {}", e),
                 };
             } else {
@@ -158,53 +176,54 @@ impl EncryptionApp {
         }
     }
 
-    /// Implementation for Phone Verification tab
-    fn render_phone_number_verification_tab(&mut self, ui: &mut Ui) {
-        ui.heading("📞 Phone Number Verification");
-
-        ui.label("Enter phone number:");
-        ui.text_edit_singleline(&mut self.phone_number);
-
-        if ui.button("🔍 Verify").clicked() {
-            if !self.phone_number.is_empty() {
-                let ipqs = IPQS::new(&API_KEY);
-                let additional_params = vec![("country", "US"), ("country", "CA")];
-                match ipqs.phone_number_api(&self.phone_number, &additional_params) {
-                    Ok(result) => {
-                        self.verification_result = format!("{:?}", result);
-                        println!("{:?}", result);
-                    }
-                    Err(e) => {
-                        self.verification_result = format!("❌ Error: {}", e);
-                        println!("{:?}", self.verification_result);
-                    }
-                }
-            } else {
-                self.verification_result = "⚠️ Please enter a phone number.".to_string();
-            }
+    fn show_integrity_check(&self, ui: &mut egui::Ui, original: &str, decrypted: &str) -> bool {
+        if validate_integrity(original, decrypted) {
+            return true;
         }
+        false
+    }
 
-        if !self.verification_result.is_empty() {
-            ui.label(&self.verification_result);
+    fn show_file_hash_ui(&mut self, ui: &mut egui::Ui, file_path: &str) {
+        if let Ok(hash) = compute_file_hash(file_path) {
+            self.file_hash = hash.clone();
+            ui.label("🔍 File Hash:");
+            ui.add(TextEdit::singleline(&mut self.file_hash).desired_width(400.0));
+        } else {
+            ui.label("⚠️ Error computing hash.");
         }
-
     }
 
     fn render_audit_log_tab(&mut self, ui: &mut Ui) {
         ui.heading("📜 Audit Log");
-        for log in read_audit_log() {
-            ui.label(log);
+
+        let logs = self.audit_log_data.lock().unwrap();
+        if let Some(logs) = &*logs {
+            for log in logs {
+                ui.label(log);
+            }
+        } else {
+            ui.label("Loading audit logs...");
         }
     }
 
-    /// Implementation to open the terminal instead 
+    fn fetch_audit_log(&self, ctx: Context) {
+        let logs = self.audit_log_data.clone();
+
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+            let fetched_logs = rt.block_on(read_audit_log());
+
+            let mut logs_guard = logs.lock().unwrap();
+            *logs_guard = Some(fetched_logs);
+
+            ctx.request_repaint();
+        });
+    }
+
     fn open_terminal(&mut self) {
-        // Get the current working directory 
         let current_dir = env::current_dir().expect("Failed to get current directory");
 
-        // Match the operating system 
         if cfg!(target_os = "windows") {
-            // on Windows, open the PowerShell or cmd
             if Command::new("powershell")
                 .arg("-NoExit")
                 .arg("-Command")
@@ -212,7 +231,6 @@ impl EncryptionApp {
                 .spawn()
                 .is_err()
             {
-                // Fallback to cmd.exe if PowerShell isn't available
                 Command::new("cmd")
                     .arg("/K")
                     .arg(format!("cd {}", current_dir.display()))
@@ -220,13 +238,11 @@ impl EncryptionApp {
                     .expect("Failed to open Command Prompt");
             }
         } else if cfg!(target_os = "macos") || cfg!(target_os = "linux") {
-            // On macOS or Linux, open the default terminal
             if Command::new("X-terminal-emulator")
                 .arg(format!("--working-directory={}", current_dir.display()))
                 .spawn()
                 .is_err()
             {
-                // Fallbacks for different desktop environments
                 if Command::new("gnome-terminal")
                     .arg(format!("--working-directory={}", current_dir.display()))
                     .spawn()
@@ -244,8 +260,7 @@ impl EncryptionApp {
     }
 }
 
-/// Runs the GUI application
 pub fn run_gui() -> eframe::Result<()> {
-    let options = eframe::NativeOptions::default(); // Default settings for the GUI
+    let options = eframe::NativeOptions::default();
     eframe::run_native("File Encryption Tool", options, Box::new(|_cc| Box::new(EncryptionApp::default())))
 }

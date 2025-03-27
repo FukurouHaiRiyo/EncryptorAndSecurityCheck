@@ -9,13 +9,15 @@ This Rust project provides a secure way to encrypt and decrypt files using **AES
 ## Features
 
 - 🔒 AES-256-GCM Encryption: Ensures secure and authenticated encryption.
-- Password-Based Key Derivation: Uses Argon2id to generate secure keys from user passwords.
-- Random Salt & Nonce: Each encryption uses a unique 16-byte salt and 12-byte nonce.
-- Encrypted File Structure: [16 bytes salt] + [12 bytes nonce] + [Encrypted data]
-- Improved Debugging: Outputs debugging information like salt, nonce, and ciphertext.
-- 🖥️ GUI Mode (built with eframe)
-- 📜 CLI Mode for advanced users
-- 🎛️ Choose between GUI or CLI at runtime
+- 🛡 **Password-Based Key Derivation**: Uses **Argon2id** for secure key generation.  
+- **Random Salt & Nonce**: Each encryption uses a unique 16-byte salt and 12-byte nonce.
+- 🔑 **Google Secret Manager Integration**: Securely stores encryption keys.  
+- 📜 **Encrypted File Structure**: `[16 bytes salt] + [12 bytes nonce] + [Encrypted data]`
+- 📊 **IPQS Phone Validation API**: Checks if a phone number is valid, active, or flagged as fraud.  
+- 🖥 **GUI Mode (Built with eframe)**: User-friendly interface for encryption and validation.  
+- 💻 **CLI Mode**: Command-line interface for advanced users.  
+- 🔍 **Audit Logging**: All encryption and decryption actions are logged securely.
+- 🎛 **Choose Between GUI or CLI at Runtime**  
 
 
 ## 🔧 Changes & Fixes
@@ -51,19 +53,16 @@ You will be prompted to choose a mode:
 ### 3️⃣ CLI Mode
 - You can encrypt or decrypt files using the following commands: 
 🔒 Encrypt a File: 
-```cargo run -- encrypt -i input.txt -o encrypted.bin -p "your-password"```:
+```cargo run --release -- encrypt -i input.txt -o encrypted.bin```:
 - encrypt → Start the encryption process
 - -i input.txt → Input file
 - -o encrypted.bin → Encrypted output file
-- -p "your-password" → Password for encryption
 
 🔓 Decrypt a File: 
-```cargo run -- decrypt -i encrypted.bin -o output.txt -p "your-password"```
+```cargo run --release -- decrypt -i encrypted.bin -o decrypted.txt```
 - decrypt → Start the decryption process
 - -i encrypted.bin → Encrypted file
 - -o output.txt → Output (decrypted) file
-- -p "your-password" → Same password used for encryption
-
 
 
 ## 🛠 How It Works
@@ -79,6 +78,7 @@ The encrypted file consists of:
 - Salt → Randomly generated per encryption (ensures unique keys).
 - Nonce → Random 12-byte value (used for AES-GCM encryption).
 - Encrypted Data → The actual encrypted file content.
+
 # 📦 Dependencies
 Built with: 
 - [RustCrypto](https://crates.io/crates/crypto) libraries for encrypting and decrypting 
@@ -143,6 +143,26 @@ Protection: AES-GCM detects tampering and prevents the altered file from being d
     Tampering = Unauthorized modification of data. \
     AES-GCM prevents tampering by using an authentication tag to verify the integrity of the encrypted file.
 
+## 🔧 Setup  
+
+### 📥 1. Clone the Repository  
+```sh
+git clone https://github.com/yourusername/your-repo.git
+cd your-repo
+```
+
+### 🛠 2. Install Dependencies
+Ensure you have Rust installed. If not, install it via rustup
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+Then, install the required dependencies:
+
+```sh
+cargo build --release
+```
+
 ## 🧵 Support multi-threaded encryption for larger files. 
 
 
@@ -151,23 +171,21 @@ Protection: AES-GCM detects tampering and prevents the altered file from being d
 - If you choose CLI mode, you can encrypt or decrypt files using the following commands: 
 
 #### 🔒 Encrypt a File
-- ```cargo run -- encrypt -i input.txt -o encrypted.bin -p "your-password"```
+- ```cargo run -- encrypt -i input.txt -o encrypted.bin -p```
 
 📌 Breakdown:
 - encrypt → Start the encryption process
 - -i input.txt → Specify the input file
 - -o encrypted.bin → Specify the encrypted output file
-- -p "your-password" → Set a password for encryption
 
 #### 🔓 Decrypt a File
-- ```cargo run -- decrypt -i encrypted.bin -o output.txt -p "your-password"```
+- ```cargo run -- decrypt -i encrypted.bin -o output.txt -p ```
 
 📌 Breakdown:
 
 - decrypt → Start the decryption process
 - -i encrypted.bin → Specify the encrypted file
 - -o output.txt → Specify the output (decrypted) file
-- -p "your-password" → Provide the same password used for encryption
 
 ## 🔄 Save encryption keys securely instead of requiring user input every time ✅ 
 
@@ -181,6 +199,13 @@ Protection: AES-GCM detects tampering and prevents the altered file from being d
 
 # 📜 License
 This project is open-source and released under the MIT License
+
+## 🔧 Setup  
+
+### 📥 1. Clone the Repository  
+```sh
+git clone https://github.com/yourusername/your-repo.git
+cd your-repo
 
 
 ## Documentation
