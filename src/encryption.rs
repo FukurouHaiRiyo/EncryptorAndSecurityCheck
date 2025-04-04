@@ -4,6 +4,7 @@ use rand::Rng; // Random number generation
 use std::fs; // File handling
 use std::path::Path; // Path handling
 use serde::{Serialize, Deserialize};
+use tokio::runtime::Runtime;
 
 use crate::key_manager;
 use crate::audit_log::log_encryption_action;
@@ -29,6 +30,9 @@ struct FileMetadata {
 /// # Returns:
 /// - `Ok(())` if encryption succeeds, otherwise `Err(String)`.
 pub fn encrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
+    let input_path_owned = input_path.to_string(); // Convert to owned String
+    let output_path_owned = output_path.to_string(); // Convert to owned String
+
     // Ensure input file exists
     if !Path::new(input_path).exists() {
         return Err(format!("❌ Error: File '{}' not found.", input_path));
@@ -70,8 +74,13 @@ pub fn encrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
     fs::write(output_path, output)
         .map_err(|e| format!("❌ Error writing encrypted file: {}", e))?;
 
-    log_encryption_action("User", "Encrypt", input_path); // Log the encryption action
-    println!("✅ Encryption successful! File saved as '{}'", output_path);
+     // Create a Tokio runtime to run async functions
+     let runtime = Runtime::new().map_err(|e| e.to_string())?;
+     runtime.block_on(async {
+         log_encryption_action("User", "Encrypt", &input_path_owned);
+     });
+
+    // println!("✅ Encryption successful! File saved as '{}'", output_path); 
     Ok(())
 }
 
@@ -89,6 +98,9 @@ pub fn encrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
 /// # Returns:
 /// - `Ok(())` if decryption succeeds, otherwise `Err(String)`.
 pub fn decrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
+    let input_path_owned = input_path.to_string(); // Convert to owned String
+    let output_path_owned = output_path.to_string(); // Convert to owned String
+
     if !Path::new(input_path).exists() {
         return Err(format!("❌ Error: Encrypted file '{}' not found.", input_path));
     }
@@ -131,13 +143,18 @@ pub fn decrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
     fs::write(output_path, decrypted_data)
         .map_err(|e| format!("❌ Error writing decrypted file: {}", e))?;
 
-    log_encryption_action("User", "Decrypt", input_path); // Log the decryption action
+    let runtime = Runtime::new().map_err(|e| e.to_string())?;
+    runtime.block_on(async {
+        log_encryption_action("User", "Decrypt", &input_path_owned);
+    });
+
     println!(
         "✅ Decryption successful! Original filename: '{}', size: {} bytes. File saved as '{}'",
         metadata.filename, metadata.size, output_path
     );
     Ok(())
 }
+
 
 /// Loads the encryption key or generates a new one if it doesn't exist.
 ///

@@ -10,11 +10,6 @@ mod key_manager;
 mod audit_log;
 mod hash_file;
 
-// Load the API key from the .env file
-static API_KEY: Lazy<String> = Lazy::new(|| {
-    dotenv().ok();
-    env::var("API_KEY").expect("API_KEY not found in .env file")
-});
 
 /// CLI and GUI Interface for AES-256-GCM File Encryption and Phone Verification
 #[derive(Parser)]

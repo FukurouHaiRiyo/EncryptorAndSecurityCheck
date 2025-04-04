@@ -9,9 +9,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Serialize, Deserialize}; 
 
 const FOLDER: &str = "folder";
-const KEY_FILE: &str = "folder/aes_store.enc";
-const MASTER_KEY_STORE: &str = "folder/aes_store1.bin";
-const SECRET_KEY_FILE: &str = "folder/aes_store2.bin";
+const KEY_FILE: &str = "folder/store.enc";
+const MASTER_KEY_STORE: &str = "folder/store1.bin";
+const SECRET_KEY_FILE: &str = "folder/store2.bin";
 const NONCE_SIZE: usize = 12;
 
 /// Constants for key rotation

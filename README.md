@@ -179,7 +179,7 @@ cargo build --release
 - -o encrypted.bin → Specify the encrypted output file
 
 #### 🔓 Decrypt a File
-- ```cargo run -- decrypt -i encrypted.bin -o output.txt -p ```
+- ```cargo run -- decrypt -i encrypted.bin -o output.txt -p```
 
 📌 Breakdown:
 

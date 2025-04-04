@@ -15,13 +15,8 @@ use crate::audit_log::read_audit_log;
 use crate::hash_file::{compute_file_hash, validate_integrity};
 use crate::encryption::{encrypt_file, decrypt_file}; 
 
-
 const OUTPUT_FOLDER: &str = "folder";
 
-static API_KEY: Lazy<String> = Lazy::new(|| {
-    dotenv().ok(); 
-    env::var("API_KEY").expect("API_KEY not found in .env file")
-});
 
 #[derive(PartialEq)]
 enum Mode {
@@ -33,7 +28,7 @@ enum Mode {
 enum Tab {
     Encryption,
     AuditLog,
-    OpenTerminal,
+    // OpenTerminal,
 }
 
 pub struct EncryptionApp {
@@ -75,7 +70,7 @@ impl eframe::App for EncryptionApp {
                     self.fetch_audit_log(ctx_clone);
                 }
                 if ui.button("Open terminal").clicked() {
-                    self.active_tab = Tab::OpenTerminal;
+                    // self.active_tab = Tab::OpenTerminal;
                 }
             });
         });
@@ -84,7 +79,7 @@ impl eframe::App for EncryptionApp {
             match self.active_tab {
                 Tab::Encryption => self.render_encryption_tab(ui),
                 Tab::AuditLog => self.render_audit_log_tab(ui),
-                Tab::OpenTerminal => self.open_terminal(),
+                // Tab::OpenTerminal => self.open_terminal(),
             }
         });
     }
@@ -199,10 +194,16 @@ impl EncryptionApp {
         let logs = self.audit_log_data.lock().unwrap();
         if let Some(logs) = &*logs {
             for log in logs {
-                ui.label(log);
+                if log.starts_with("⚠️ Tampered Log") {
+                    ui.colored_label(egui::Color32::RED, log);
+                } else if log.starts_with("⚠️ Invalid log format") {
+                    ui.colored_label(egui::Color32::YELLOW, log);
+                } else {
+                    ui.colored_label(egui::Color32::GREEN, log);
+                }
             }
         } else {
-            ui.label("Loading audit logs...");
+            ui.label("⏳ Loading audit logs...");
         }
     }
 
@@ -210,52 +211,18 @@ impl EncryptionApp {
         let logs = self.audit_log_data.clone();
 
         std::thread::spawn(move || {
-            let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
-            let fetched_logs = rt.block_on(read_audit_log());
+            let fetched_logs = read_audit_log(); // Fetch logs
 
             let mut logs_guard = logs.lock().unwrap();
             *logs_guard = Some(fetched_logs);
 
-            ctx.request_repaint();
+            ctx.request_repaint(); // Force UI update
         });
     }
 
     fn open_terminal(&mut self) {
-        let current_dir = env::current_dir().expect("Failed to get current directory");
-
-        if cfg!(target_os = "windows") {
-            if Command::new("powershell")
-                .arg("-NoExit")
-                .arg("-Command")
-                .arg(format!("cd {}", current_dir.display()))
-                .spawn()
-                .is_err()
-            {
-                Command::new("cmd")
-                    .arg("/K")
-                    .arg(format!("cd {}", current_dir.display()))
-                    .spawn()
-                    .expect("Failed to open Command Prompt");
-            }
-        } else if cfg!(target_os = "macos") || cfg!(target_os = "linux") {
-            if Command::new("X-terminal-emulator")
-                .arg(format!("--working-directory={}", current_dir.display()))
-                .spawn()
-                .is_err()
-            {
-                if Command::new("gnome-terminal")
-                    .arg(format!("--working-directory={}", current_dir.display()))
-                    .spawn()
-                    .is_err()
-                {
-                    Command::new("konsole")
-                        .arg(format!("--workdir={}", current_dir.display()))
-                        .spawn()
-                        .expect("Failed to open terminal");
-                }
-            }
-        } else {
-            println!("❌ Unsupported operating system");
+        if let Err(err) = Command::new("cli_terminal").spawn() {
+            eprintln!("❌ Failed to open CLI terminal: {:?}", err);
         }
     }
 }
