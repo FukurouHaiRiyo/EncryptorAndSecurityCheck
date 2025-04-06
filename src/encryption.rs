@@ -148,10 +148,10 @@ pub fn decrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
         log_encryption_action("User", "Decrypt", &input_path_owned);
     });
 
-    println!(
-        "✅ Decryption successful! Original filename: '{}', size: {} bytes. File saved as '{}'",
-        metadata.filename, metadata.size, output_path
-    );
+    // println!(
+    //     "✅ Decryption successful! Original filename: '{}', size: {} bytes. File saved as '{}'",
+    //     metadata.filename, metadata.size, output_path
+    // );
     Ok(())
 }
 
@@ -178,6 +178,6 @@ fn load_or_generate_key() -> Result<Key<Aes256Gcm>, String> {
     key_manager::save_key(&metadata, &master_key)
         .map_err(|e| format!("❌ Error saving key: {}", e))?;
 
-    println!("🔑 New encryption key generated and stored securely.");
+    // println!("🔑 New encryption key generated and stored securely."); 
     Ok(Key::<Aes256Gcm>::from_slice(&new_key).clone())
 }

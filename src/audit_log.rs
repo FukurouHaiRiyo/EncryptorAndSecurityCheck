@@ -12,7 +12,7 @@ fn ensure_log_file_exists() {
         if let Err(e) = File::create(LOG_FILE) {
             eprintln!("❌ Failed to create audit log file: {}", e);
         } else {
-            println!("📄 Audit log file created successfully.");
+            // println!("📄 Audit log file created successfully."); 
         }
     }
 }
@@ -35,14 +35,14 @@ pub fn log_encryption_action(username: &str, action: &str, filename: &str) {
     let hashed_entry = hash_log_entry(&log_entry);
     let final_entry = format!("{} | {}", hashed_entry, log_entry);
 
-    println!("🔏 Hashed log entry: {}", final_entry);
+    // println!("🔏 Hashed log entry: {}", final_entry); 
 
     match OpenOptions::new().create(true).append(true).open(LOG_FILE) {
         Ok(mut file) => {
             if let Err(e) = writeln!(file, "{}", final_entry) {
                 eprintln!("❌ Failed to write log entry: {}", e);
             } else {
-                println!("✅ Successfully wrote to audit log.");
+                // println!("✅ Successfully wrote to audit log."); 
             }
         }
         Err(e) => {
@@ -69,7 +69,7 @@ pub fn read_audit_log() -> Vec<String> {
         return vec!["❌ Failed to read log file".to_string()];
     }
 
-    println!("📖 Raw log file content:\n{}", content);
+    // println!("📖 Raw log file content:\n{}", content); 
 
     let mut verified_logs = Vec::new();
     for line in content.lines() {
@@ -77,14 +77,14 @@ pub fn read_audit_log() -> Vec<String> {
             let recomputed_hash = hash_log_entry(log_entry);
 
             if stored_hash == recomputed_hash {
-                println!("✅ Log entry verified: {}", log_entry);
+                // println!("✅ Log entry verified: {}", log_entry); 
                 verified_logs.push(log_entry.to_string());
             } else {
                 println!("⚠️ Tampered log entry detected: {}", log_entry);
                 verified_logs.push(format!("⚠️ Tampered Log: {}", log_entry));
             }
         } else {
-            println!("⚠️ Invalid log format: {}", line);
+            // println!("⚠️ Invalid log format: {}", line); 
             verified_logs.push("⚠️ Invalid log format".to_string());
         }
     }

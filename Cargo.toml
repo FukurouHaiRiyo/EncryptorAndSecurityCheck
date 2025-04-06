@@ -38,6 +38,8 @@ yup-oauth2 = "8.3.0"
 hex = "0.4"
 ratatui = "0.26"  
 crossterm = "0.27"  # Required for terminal handling
+anyhow = "1.0"
+
 
 [[bin]]
 name = "cli_terminal"

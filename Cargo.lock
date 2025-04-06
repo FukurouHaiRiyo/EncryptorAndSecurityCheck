@@ -7,6 +7,7 @@ name = "FileEncryption"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
+ "anyhow",
  "argon2",
  "base64 0.21.7",
  "chrono",
