@@ -69,9 +69,6 @@ impl eframe::App for EncryptionApp {
                     let ctx_clone = ctx.clone();
                     self.fetch_audit_log(ctx_clone);
                 }
-                if ui.button("Open terminal").clicked() {
-                    // self.active_tab = Tab::OpenTerminal;
-                }
             });
         });
 
