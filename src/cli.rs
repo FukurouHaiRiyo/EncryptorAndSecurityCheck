@@ -7,35 +7,39 @@ use crossterm::{
 };
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Layout, Position},
-    style::{Color, Modifier, Style, Stylize},
+    layout::{Constraint, Layout},
+    style::{Color, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, List, ListItem, Paragraph},
     Terminal,
 };
 use chrono::Utc;
 
-
+// Internal module imports
 mod encryption;
 mod audit_log;
 mod key_manager;
+
 use crate::encryption::{encrypt_file, decrypt_file};
 use crate::audit_log::log_encryption_action;
 
+// Entry point
 fn main() -> anyhow::Result<()> {
-    enable_raw_mode()?;
+    enable_raw_mode()?; // Enable raw terminal input mode
     let backend = CrosstermBackend::new(io::stdout());
     let terminal = Terminal::new(backend)?;
-    App::new().run(terminal)?;
-    disable_raw_mode()?;
+    App::new().run(terminal)?; // Launch the app
+    disable_raw_mode()?; // Cleanly disable raw mode on exit
     Ok(())
 }
 
+// Tracks input mode: either Editing input or Normal (navigation)
 enum InputMode {
     Normal,
     Editing,
 }
 
+// CLI application state
 struct App {
     input: String,
     character_index: usize,
@@ -44,6 +48,7 @@ struct App {
 }
 
 impl App {
+    // Create a new App instance
     fn new() -> Self {
         Self {
             input: String::new(),
@@ -53,6 +58,7 @@ impl App {
         }
     }
 
+    // Main application loop
     fn run(&mut self, mut terminal: Terminal<CrosstermBackend<io::Stdout>>) -> anyhow::Result<()> {
         loop {
             terminal.draw(|f| self.draw(f))?;
@@ -66,7 +72,7 @@ impl App {
                         KeyCode::Right => self.move_cursor_right(),
                         KeyCode::Enter => self.submit_command(),
                         KeyCode::Esc => self.input_mode = InputMode::Normal,
-                        KeyCode::Char('q') => return Ok(()),
+                        KeyCode::Char('q') => return Ok(()), // quick exit
                         _ => {}
                     },
                     InputMode::Normal => match key.code {
@@ -80,6 +86,7 @@ impl App {
         }
     }
 
+    // Draws the UI using Ratatui layout and widgets
     fn draw(&self, frame: &mut ratatui::Frame) {
         let chunks = Layout::vertical([
             Constraint::Length(1),
@@ -88,28 +95,18 @@ impl App {
         ])
         .split(frame.size());
 
+        // Help line based on input mode
         let (msg, style) = match self.input_mode {
             InputMode::Normal => (
-                vec![
-                    "Press ".into(),
-                    "e".bold(),
-                    " to edit, ".into(),
-                    "q".bold(),
-                    " to quit.".into(),
-                ],
+                vec!["Press ".into(), "e".bold(), " to edit, ".into(), "q".bold(), " to quit.".into()],
                 Style::default(),
             ),
             InputMode::Editing => (
-                vec![
-                    "Press ".into(),
-                    "Enter".bold(),
-                    " to run, ".into(),
-                    "Esc".bold(),
-                    " to stop editing.".into(),
-                ],
+                vec!["Press ".into(), "Enter".bold(), " to run, ".into(), "Esc".bold(), " to stop editing.".into()],
                 Style::default(),
             ),
         };
+
         let help = Paragraph::new(Text::from(Line::from(msg)).patch_style(style));
         frame.render_widget(help, chunks[0]);
 
@@ -121,11 +118,9 @@ impl App {
             .block(Block::bordered().title("Enter Command"));
         frame.render_widget(input, chunks[1]);
 
+        // Cursor follows character_index during editing
         if let InputMode::Editing = self.input_mode {
-            frame.set_cursor(
-                chunks[1].x + self.character_index as u16 + 1,
-                chunks[1].y + 1,
-            );
+            frame.set_cursor(chunks[1].x + self.character_index as u16 + 1, chunks[1].y + 1);
         }
 
         let messages: Vec<ListItem> = self
@@ -140,20 +135,24 @@ impl App {
         frame.render_widget(list, chunks[2]);
     }
 
+    // Move cursor left within input field
     fn move_cursor_left(&mut self) {
         self.character_index = self.character_index.saturating_sub(1);
     }
 
+    // Move cursor right within input field
     fn move_cursor_right(&mut self) {
         self.character_index = (self.character_index + 1).min(self.input.chars().count());
     }
 
+    // Insert character into input string
     fn enter_char(&mut self, c: char) {
         let idx = self.byte_index();
         self.input.insert(idx, c);
         self.move_cursor_right();
     }
 
+    // Delete character from input string
     fn delete_char(&mut self) {
         if self.character_index == 0 {
             return;
@@ -164,6 +163,7 @@ impl App {
         self.move_cursor_left();
     }
 
+    // Convert character index to byte index
     fn byte_index(&self) -> usize {
         self.input
             .char_indices()
@@ -172,6 +172,7 @@ impl App {
             .unwrap_or_else(|| self.input.len())
     }
 
+    // Submits the entered command for execution
     fn submit_command(&mut self) {
         let command = self.input.trim().to_string();
         if command.is_empty() {
@@ -186,6 +187,7 @@ impl App {
         self.character_index = 0;
     }
 
+    // Handles different CLI commands
     fn handle_command(&self, command: &str) -> Vec<String> {
         let parts: Vec<&str> = command.split_whitespace().collect();
         if parts.is_empty() {
@@ -201,7 +203,6 @@ impl App {
                     return vec!["❌ Usage: encrypt -i input.txt -o encrypted.bin".to_string()];
                 }
 
-                // encrypt the file and log the action
                 if let Err(e) = encrypt_file(input_file, output_file) {
                     return vec![format!("❌ Encryption failed: {}", e)];
                 }
@@ -223,7 +224,6 @@ impl App {
                     return vec!["❌ Usage: decrypt -i encrypted.bin -o output.txt".to_string()];
                 }
 
-                // decrypt the file and log the action
                 if let Err(e) = decrypt_file(input_file, output_file) {
                     return vec![format!("❌ Decryption failed: {}", e)];
                 }
@@ -242,14 +242,19 @@ impl App {
                     "FileEncryption.exe"
                 } else {
                     "FileEncryption"
-                }).spawn()
-                {
+                }).spawn() {
                     Ok(_) => vec!["🚀 Launching GUI...".into()],
                     Err(e) => vec![format!("❌ Failed to launch GUI: {}", e)],
                 }
             }
 
+            "clear" => {
+                // Clears the CLI output
+                vec![]
+            }
+
             _ => {
+                // Run other terminal commands directly
                 let output = Command::new(parts[0])
                     .args(&parts[1..])
                     .output();

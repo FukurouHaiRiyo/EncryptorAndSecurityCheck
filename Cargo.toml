@@ -39,6 +39,7 @@ ratatui = "0.29.0"
 tokio = "1.44.2"
 once_cell = "1.21.3"
 chrono = "0.4.40"
+crossterm = "0.29.0"
 
 [[bin]]
 name = "cli_terminal"
