@@ -82,3 +82,29 @@ Backup and Recovery
 What if the user wants to encrypt multiple files and then decrypt them?
 Make sure audit_log.txt and all the other files are saved under the same folder 
 Osint commands in cli - sn0int
+
+Let's try to follow the following structure: 
+
+1. Introduction 
+    1.1 The proposed objective
+    1.2 The domain of the thesis 
+    1.3 Personal contribution 
+
+2. Fundamental concepts - theoretical and practical - used technologies 
+    2.1 Rust 
+    2.2 AES-256-GCM 
+    .
+    .
+    . 
+    any other technologies used in this project 
+
+3. Development of an application for encrypting files (in here put the stages of the development)
+    3.1 The analysis of the application 
+          3.1.1 The development of the application and the stages of it 
+                   Establishing objectives
+                   The definition of the architecture of the application
+          3.1.2 The implementation of the application 
+
+4. Obtained results - discussions 
+
+5. Conclusion 
