@@ -3,17 +3,14 @@ use eframe::egui;
 use eframe::egui::{CentralPanel, Context, TopBottomPanel, Ui, TextEdit}; 
 use rfd::{FileDialog, MessageDialog, MessageDialogResult}; 
 
-use dotenvy::dotenv;
-use std::env;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
-use once_cell::sync::Lazy;
 use std::sync::{Arc, Mutex};
 
 use crate::audit_log::read_audit_log;
 use crate::hash_file::{compute_file_hash, validate_integrity};
 use crate::encryption::{encrypt_file, decrypt_file}; 
+use crate::pe_analyzer::{analyze_pe_file, PeInfo};
 
 const OUTPUT_FOLDER: &str = "folder";
 
@@ -28,6 +25,7 @@ enum Mode {
 enum Tab {
     Encryption,
     AuditLog,
+    PeAnalyzer
     // OpenTerminal,
 }
 
@@ -37,9 +35,10 @@ pub struct EncryptionApp {
     status_message: String, 
     active_tab: Tab, 
     audit_log_data: Arc<Mutex<Option<Vec<String>>>>,
-    phone_number: String, 
-    verification_result: String,
     file_hash: String, 
+    pe_file_path: Option<String>,
+    pe_analysis_result: Option<PeInfo>,
+    pe_analysis_error: Option<String>,
 }
 
 impl Default for EncryptionApp {
@@ -50,9 +49,10 @@ impl Default for EncryptionApp {
             status_message: String::new(),
             active_tab: Tab::Encryption,
             audit_log_data: Arc::new(Mutex::new(None)),
-            phone_number: String::new(),
-            verification_result: String::new(),
             file_hash: String::new(),
+            pe_file_path: None,
+            pe_analysis_result: None,
+            pe_analysis_error: None,
         }
     }
 }
@@ -69,6 +69,9 @@ impl eframe::App for EncryptionApp {
                     let ctx_clone = ctx.clone();
                     self.fetch_audit_log(ctx_clone);
                 }
+                if ui.button("🧠 PE Analyzer").clicked() {
+                    self.active_tab = Tab::PeAnalyzer;
+                }
             });
         });
 
@@ -76,12 +79,14 @@ impl eframe::App for EncryptionApp {
             match self.active_tab {
                 Tab::Encryption => self.render_encryption_tab(ui),
                 Tab::AuditLog => self.render_audit_log_tab(ui),
+                Tab::PeAnalyzer => self.render_pe_analyzer_tab(ui),
                 // Tab::OpenTerminal => self.open_terminal(),
             }
         });
     }
 }
 
+#[warn(unused_attributes)]
 impl EncryptionApp {
     fn render_encryption_tab(&mut self, ui: &mut Ui) {
         ui.heading("🔒 File Encryption Tool");
@@ -168,7 +173,7 @@ impl EncryptionApp {
         }
     }
 
-    fn show_integrity_check(&self, ui: &mut egui::Ui, original: &str, decrypted: &str) -> bool {
+    fn show_integrity_check(&self, _ui: &mut egui::Ui, original: &str, decrypted: &str) -> bool {
         if validate_integrity(original, decrypted) {
             return true;
         }
@@ -217,9 +222,46 @@ impl EncryptionApp {
         });
     }
 
-    fn open_terminal(&mut self) {
-        if let Err(err) = Command::new("cli_terminal").spawn() {
-            eprintln!("❌ Failed to open CLI terminal: {:?}", err);
+    fn render_pe_analyzer_tab(&mut self, ui: &mut Ui) {
+        ui.heading("🧠 PE File Analyzer");
+        
+        if ui.button("📂 Select PE File").clicked() {
+            if let Some(path) = FileDialog::new().add_filter("PE files", &["exe", "dll"]).pick_file(){
+                let path_str = path.display().to_string();
+                self.pe_file_path = Some(path_str.clone());
+
+                match analyze_pe_file(&path_str) {
+                    Ok(info) => {
+                        self.pe_analysis_result = Some(info);
+                        self.pe_analysis_error = None;
+                    }
+                    Err(e) => {
+                        self.pe_analysis_result = None;
+                        self.pe_analysis_error = Some(format!("❌ Error: {}", e));
+                    }
+                }
+            }
+        }
+
+        if let Some(file) = &self.pe_file_path {
+            ui.label(format!("📄 Selected file: {}", file));
+        }
+
+        if let Some(err) = &self.pe_analysis_error {
+            ui.colored_label(egui::Color32::RED, format!("❌ Error: {}", err));
+        }
+
+        if let Some(info) = &self.pe_analysis_result {
+            ui.separator();
+            ui.label(format!("🔧 Machine: {}", info.machine));
+            ui.label(format!("📄 Sections: {}", info.number_of_sections));
+            ui.label(format!("⏰ Timestamp: {}", info.timestamp));
+            ui.label(format!("🚀 Entry Point: 0x{:08X}", info.entry_point));
+            ui.label(format!("🏗️  Image Base: 0x{:016X}", info.image_base));
+            ui.label("📚 Section Names:");
+            for section in &info.sections {
+                ui.label(format!("  • {}", section));
+            }
         }
     }
 }

@@ -1,5 +1,5 @@
 use std::io;
-use std::process::{Command, Stdio};
+use std::process::{Command};
 
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
@@ -93,7 +93,7 @@ impl App {
             Constraint::Length(3),
             Constraint::Min(1),
         ])
-        .split(frame.size());
+        .split(frame.area());
 
         // Help line based on input mode
         let (msg, style) = match self.input_mode {
@@ -120,7 +120,8 @@ impl App {
 
         // Cursor follows character_index during editing
         if let InputMode::Editing = self.input_mode {
-            frame.set_cursor(chunks[1].x + self.character_index as u16 + 1, chunks[1].y + 1);
+            #[warn(deprecated)]
+            frame.set_cursor(chunks[1].x + self.character_index as u16 + 1, chunks[1].y + 1 as u16);
         }
 
         let messages: Vec<ListItem> = self
@@ -251,6 +252,38 @@ impl App {
             "clear" => {
                 // Clears the CLI output
                 vec![]
+            }
+
+            "analyze_pe" => {
+                let parts: Vec<&str> = input.split_whitespace().collect();
+
+                if parts.len() == 2 {
+                    let pe_path = parts[1];
+
+                    match analyze_pe_file(pe_path) {
+                        Ok(info) => {
+                            let mut result = vec![
+                                "📦 PE File Analysis".into(),
+                                format!("📁 File: {}", pe_path),
+                                format!("🔧 Machine: {}", info.machine),
+                                format!("📄 Number of Sections: {}", info.number_of_sections),
+                                format!("⏰ Timestamp: {}", info.timestamp),
+                                format!("🚀 Entry Point: 0x{:08X}", info.entry_point),
+                                format!("🏗️  Image Base: 0x{:016X}", info.image_base),
+                                "📚 Sections:".into(),
+                            ];
+
+                            for section in info.sections {
+                                result.push(format!("  • {}", section));
+                            }
+
+                            result
+                        }
+                        Err(e) => vec![format!("❌ Error analyzing PE file: {}", e)],
+                    }
+                } else {
+                    vec!["Usage: analyze_pe <path_to_pe_file>".into()]
+                }
             }
 
             _ => {

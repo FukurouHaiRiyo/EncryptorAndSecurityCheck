@@ -3,8 +3,9 @@ mod gui;
 mod key_manager; 
 mod audit_log;
 mod hash_file;
+mod pe_analyzer;
 
-
+#[warn(unused_must_use)]
 fn main() {
-    gui::run_gui();
+    let _ = gui::run_gui();
 }

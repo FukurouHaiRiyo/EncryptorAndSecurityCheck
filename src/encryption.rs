@@ -31,7 +31,7 @@ struct FileMetadata {
 /// - `Ok(())` if encryption succeeds, otherwise `Err(String)`.
 pub fn encrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
     let input_path_owned = input_path.to_string(); // Convert to owned String
-    let output_path_owned = output_path.to_string(); // Convert to owned String
+    let _output_path_owned = output_path.to_string(); // Convert to owned String
 
     // Ensure input file exists
     if !Path::new(input_path).exists() {
@@ -99,7 +99,7 @@ pub fn encrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
 /// - `Ok(())` if decryption succeeds, otherwise `Err(String)`.
 pub fn decrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
     let input_path_owned = input_path.to_string(); // Convert to owned String
-    let output_path_owned = output_path.to_string(); // Convert to owned String
+    let _output_path_owned = output_path.to_string(); // Convert to owned String
 
     if !Path::new(input_path).exists() {
         return Err(format!("❌ Error: Encrypted file '{}' not found.", input_path));
@@ -133,7 +133,7 @@ pub fn decrypt_file(input_path: &str, output_path: &str) -> Result<(), String> {
     // Decrypt metadata
     let decrypted_metadata = cipher.decrypt(Nonce::from_slice(nonce), encrypted_metadata)
         .map_err(|_| "❌ Metadata decryption failed.".to_string())?;
-    let metadata: FileMetadata = serde_json::from_slice(&decrypted_metadata)
+    let _metadata: FileMetadata = serde_json::from_slice(&decrypted_metadata)
         .map_err(|_| "❌ Failed to deserialize metadata.".to_string())?;
 
     // Decrypt file data
