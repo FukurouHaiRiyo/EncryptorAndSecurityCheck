@@ -7,8 +7,8 @@ pub struct PeInfo {
     pub machine: String,              // CPU architecture (e.g., x86, x64)
     pub number_of_sections: usize,   // Number of sections in the PE file
     pub timestamp: u32,              // Timestamp when the file was created
-    pub entry_point: u32,            // Entry point address of the executable
-    pub image_base: u64,             // Preferred load address of the executable
+    pub entry_point: usize,            // Entry point address of the executable
+    pub image_base: usize,             // Preferred load address of the executable
     pub sections: Vec<String>,       // List of section names
 }
 
