@@ -83,6 +83,9 @@ What if the user wants to encrypt multiple files and then decrypt them?
 Make sure audit_log.txt and all the other files are saved under the same folder 
 Osint commands in cli - sn0int
 
+
+Next step is to integrate file encryption, Firebase Storage upload, and metadata saving under the authenticated user's ID.
+
 Let's try to follow the following structure: 
 
 1. Introduction 

@@ -3,6 +3,7 @@ use std::fs;
 use std::path::Path;
 
 /// A struct to hold extracted PE information.
+#[derive(Debug)]
 pub struct PeInfo {
     pub machine: String,              // CPU architecture (e.g., x86, x64)
     pub number_of_sections: usize,   // Number of sections in the PE file

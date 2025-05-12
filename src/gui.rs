@@ -6,11 +6,13 @@ use rfd::{FileDialog, MessageDialog, MessageDialogResult};
 use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use tokio::runtime::Runtime;
 
 use crate::audit_log::read_audit_log;
 use crate::hash_file::{compute_file_hash, validate_integrity};
 use crate::encryption::{encrypt_file, decrypt_file}; 
 use crate::pe_analyzer::{analyze_pe_file, PeInfo};
+use crate::auth::{sign_up, login, AuthResponse};
 
 const OUTPUT_FOLDER: &str = "folder";
 
@@ -29,6 +31,15 @@ enum Tab {
     // OpenTerminal,
 }
 
+enum AuthState {
+    LoggedOut,
+    LoggingIn,
+    SigningUp,
+    LoggedIn,
+    Login,
+    Dashboard,
+}
+
 pub struct EncryptionApp {
     selected_file: Option<String>, 
     mode: Mode, 
@@ -39,6 +50,15 @@ pub struct EncryptionApp {
     pe_file_path: Option<String>,
     pe_analysis_result: Option<PeInfo>,
     pe_analysis_error: Option<String>,
+
+    email: String,
+    password: String,
+    message: String,
+    is_signup: bool,
+    is_logged_in: bool,
+    user_email: Option<String>,
+    id_token: Option<String>,
+    rt: Arc<Runtime>,
 }
 
 impl Default for EncryptionApp {
@@ -53,34 +73,63 @@ impl Default for EncryptionApp {
             pe_file_path: None,
             pe_analysis_result: None,
             pe_analysis_error: None,
+
+            email: String::new(),
+            password: String::new(),
+            message: String::new(),
+            is_signup: false,
+            is_logged_in: false,
+            user_email: None,
+            id_token: None,
+            rt: Arc::new(Runtime::new().unwrap()),
         }
     }
 }
 
 impl eframe::App for EncryptionApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                if ui.button("🔒 Encryption").clicked() {
-                    self.active_tab = Tab::Encryption;
-                }
-                if ui.button("Audit Log").clicked() {
-                    self.active_tab = Tab::AuditLog;
-                    let ctx_clone = ctx.clone();
-                    self.fetch_audit_log(ctx_clone);
-                }
-                if ui.button("🧠 PE Analyzer").clicked() {
-                    self.active_tab = Tab::PeAnalyzer;
-                }
-            });
-        });
-
         CentralPanel::default().show(ctx, |ui| {
-            match self.active_tab {
-                Tab::Encryption => self.render_encryption_tab(ui),
-                Tab::AuditLog => self.render_audit_log_tab(ui),
-                Tab::PeAnalyzer => self.render_pe_analyzer_tab(ui),
-                // Tab::OpenTerminal => self.open_terminal(),
+            if self.is_logged_in {
+                self.show_dashboard(ui);
+                return;
+            }
+    
+            ui.heading(if self.is_signup { "Sign Up" } else { "Login" });
+    
+            ui.label("Email:");
+            ui.text_edit_singleline(&mut self.email);
+    
+            ui.label("Password:");
+            ui.text_edit_singleline(&mut self.password);
+    
+            if ui.button(if self.is_signup { "Sign Up" } else { "Login" }).clicked() {
+                let email = self.email.clone();
+                let password = self.password.clone();
+                let result = if self.is_signup {
+                    self.rt.block_on(sign_up(&email, &password))
+                } else {
+                    self.rt.block_on(login(&email, &password))
+                };
+    
+                match result {
+                    Ok(auth_response) => {
+                        self.message = "Success!".to_string();
+                        self.is_logged_in = true;
+                        self.user_email = Some(auth_response.email);
+                        self.id_token = Some(auth_response.idToken);
+                    }
+                    Err(e) => {
+                        self.message = format!("Error: {}", e);
+                    }
+                }
+            }
+    
+            if ui.button(if self.is_signup { "Switch to Login" } else { "Switch to Sign Up" }).clicked() {
+                self.is_signup = !self.is_signup;
+            }
+    
+            if !self.message.is_empty() {
+                ui.label(&self.message);
             }
         });
     }
@@ -88,9 +137,31 @@ impl eframe::App for EncryptionApp {
 
 #[warn(unused_attributes)]
 impl EncryptionApp {
+    fn show_dashboard(&mut self, ui: &mut Ui) {
+        ui.heading("Dashboard");
+
+        if let Some(email) = &self.user_email {
+            ui.label(format!("Welcome, {}!", email));
+
+            self.render_encryption_tab(ui);
+        }
+
+        if ui.button("Log out").clicked() {
+            self.is_logged_in = false;
+            self.email.clear();
+            self.password.clear();
+            self.user_email = None;
+            self.id_token = None;
+            self.message.clear();
+        }
+    }
+
     fn render_encryption_tab(&mut self, ui: &mut Ui) {
         ui.heading("🔒 File Encryption Tool");
         ui.label("📂 Drag and drop a file here or select one manually:");
+
+        ui.label("🔑 Enter password:");
+        ui.add(TextEdit::singleline(&mut self.password).password(true));
 
         let dropped_files = ui.input(|i| i.raw.dropped_files.clone());
         if let Some(file) = dropped_files.first() {
@@ -120,6 +191,11 @@ impl EncryptionApp {
         });
 
         if ui.button("🔄 Start").clicked() {
+            if self.password.is_empty() {
+                self.status_message = "❌ Please enter a password.".to_string();
+                return;
+            }
+
             if let Some(file) = &self.selected_file {
                 if !Path::new(OUTPUT_FOLDER).exists() {
                     fs::create_dir_all(OUTPUT_FOLDER).expect("Failed to create output folder");
@@ -147,8 +223,8 @@ impl EncryptionApp {
                 }
 
                 let result = match self.mode {
-                    Mode::Encrypt => encrypt_file(file, &output_file),
-                    Mode::Decrypt => decrypt_file(file, &output_file),
+                    Mode::Encrypt => encrypt_file(file, &output_file, &self.password),
+                    Mode::Decrypt => decrypt_file(file, &output_file, &self.password),  
                 };
 
                 self.status_message = match result {
