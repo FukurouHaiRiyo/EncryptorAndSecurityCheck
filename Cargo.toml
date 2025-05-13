@@ -43,6 +43,7 @@ crossterm = "0.29.0"
 goblin = "0.9.3"
 clap = "4.5.37"
 dotenv = "0.15.0"
+tokio-util = "0.7.15"
 
 [[bin]]
 name = "cli_terminal"

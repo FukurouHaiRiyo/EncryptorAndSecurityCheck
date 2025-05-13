@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use eframe::egui;
-use eframe::egui::{CentralPanel, Context, TopBottomPanel, Ui, TextEdit}; 
+use eframe::egui::{CentralPanel, Context, Ui, TextEdit}; 
 use rfd::{FileDialog, MessageDialog, MessageDialogResult}; 
 
 use std::fs;

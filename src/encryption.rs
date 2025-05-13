@@ -5,12 +5,14 @@ use std::fs; // File handling
 use std::path::Path; // Path handling
 use serde::{Serialize, Deserialize};
 use tokio::runtime::Runtime;
-use argon2::{Argon2, PasswordHasher, PasswordVerifier};
-use argon2::password_hash::{SaltString, PasswordHash, PasswordHasher as _, PasswordVerifier as _, Output};
-use password_hash::rand_core::OsRng;
+use argon2::{Argon2, PasswordHasher };
+use argon2::password_hash::{SaltString};
 
 use crate::key_manager;
 use crate::audit_log::log_encryption_action;
+use crate::firebase_storage::upload_to_firebase;
+use crate::firebase_storage::download_from_firebase;
+use crate::auth::load_auth_token;
 
 /// Struct for file metadata
 #[derive(Serialize, Deserialize)]
@@ -22,7 +24,7 @@ struct FileMetadata {
 // Password-based helper function
 fn derive_key_from_password(password: &str, salt: &[u8]) -> Result<Key<Aes256Gcm>, String> {
     let argon2 = Argon2::default();
-    let salt_string = SaltString::b64_encode(salt)
+    let salt_string = SaltString::encode_b64(salt)
         .map_err(|e| format!("❌ Salt encoding failed: {}", e))?;
     let password_hash = argon2
         .hash_password(password.as_bytes(), &salt_string)
@@ -85,9 +87,13 @@ pub fn encrypt_file(input_path: &str, output_path: &str, password: &str) -> Resu
 
     fs::write(output_path, output).map_err(|e| format!("❌ Error writing file: {}", e))?;
 
+    let auth = load_auth_token().map_err(|e| format!("❌ Failed to load auth token: {}", e))?;
+    let firebase_token = &auth.idToken; // Retrieve from login
+    let user_id = &auth.localId; // From Firebase auth
     let runtime = Runtime::new().map_err(|e| e.to_string())?;
     runtime.block_on(async {
         log_encryption_action("User", "EncryptWithPassword", input_path);
+        upload_to_firebase(output_path, firebase_token, user_id).await.unwrap();
     });
 
     Ok(())
@@ -144,9 +150,15 @@ pub fn decrypt_file(input_path: &str, output_path: &str, password: &str) -> Resu
     fs::write(output_path, decrypted_data)
         .map_err(|e| format!("❌ Error writing decrypted file: {}", e))?;
 
+
+    let auth = load_auth_token().map_err(|e| format!("❌ Failed to load auth token: {}", e))?;
+    let firebase_token = &auth.idToken; // Retrieve from login
+    let user_id = &auth.localId; // From Firebase auth
+    let file_name = "example_encrypted.bin";
     let runtime = Runtime::new().map_err(|e| e.to_string())?;
     runtime.block_on(async {
         log_encryption_action("User", "DecryptWithPassword", input_path);
+        download_from_firebase(file_name, input_path, firebase_token, user_id).await.unwrap();
     });
 
     Ok(())
